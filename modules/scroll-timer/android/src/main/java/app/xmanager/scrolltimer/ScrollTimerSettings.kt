@@ -16,15 +16,13 @@ internal class ScrollTimerSettings(context: Context) {
     get() = prefs.getBoolean("locked", false)
     set(value) = prefs.edit().putBoolean("locked", value).apply()
 
-  fun totalMs(foreground: Boolean) = prefs.getLong(totalKey(foreground), 0)
+  fun lastSessionMs(foreground: Boolean) =
+    prefs.getLong(if (foreground) "last_session_foreground_ms" else "last_session_scroll_ms", 0)
 
-  fun storeTotal(clock: ScrollClock) {
-    if (totalMs(clock.foregroundMode) != clock.totalMs) {
-      prefs.edit().putLong(totalKey(clock.foregroundMode), clock.totalMs).apply()
-    }
+  fun storeSession(clock: ScrollClock) {
+    prefs.edit()
+      .putLong("last_session_scroll_ms", clock.scrollMs)
+      .putLong("last_session_foreground_ms", clock.foregroundMs)
+      .apply()
   }
-
-  fun resetTotal(foreground: Boolean) = prefs.edit().remove(totalKey(foreground)).apply()
-
-  private fun totalKey(foreground: Boolean) = if (foreground) "foreground_ms" else "scroll_ms"
 }

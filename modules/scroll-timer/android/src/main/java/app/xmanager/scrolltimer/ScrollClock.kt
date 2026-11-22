@@ -4,11 +4,10 @@ import java.util.Locale
 
 private const val SCROLL_IDLE_MS = 1_200L
 
-internal class ScrollClock(
-  val foregroundMode: Boolean,
-  totalMs: Long,
-) {
-  var totalMs = totalMs
+internal class ScrollClock {
+  var scrollMs = 0L
+    private set
+  var foregroundMs = 0L
     private set
 
   private var lastUpdate = 0L
@@ -17,8 +16,8 @@ internal class ScrollClock(
 
   fun update(now: Long, eligible: Boolean, scrolled: Boolean = false) {
     if (this.eligible) {
-      val end = if (foregroundMode) now else minOf(now, scrollUntil)
-      totalMs += (end - lastUpdate).coerceAtLeast(0)
+      foregroundMs += now - lastUpdate
+      scrollMs += (minOf(now, scrollUntil) - lastUpdate).coerceAtLeast(0)
     }
     lastUpdate = now
     this.eligible = eligible
@@ -26,11 +25,9 @@ internal class ScrollClock(
     if (eligible && scrolled) scrollUntil = now + SCROLL_IDLE_MS
   }
 
-  fun countingFor(now: Long): Long = when {
-    !eligible -> 0L
-    foregroundMode -> Long.MAX_VALUE
-    else -> (scrollUntil - now).coerceAtLeast(0)
-  }
+  fun totalMs(foreground: Boolean) = if (foreground) foregroundMs else scrollMs
+
+  fun scrollingFor(now: Long) = (scrollUntil - now).coerceAtLeast(0)
 }
 
 internal fun formatTime(seconds: Long): String {

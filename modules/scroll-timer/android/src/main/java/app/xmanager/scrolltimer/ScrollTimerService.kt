@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Rect
 import android.os.Build
@@ -25,18 +26,25 @@ class ScrollTimerService : AccessibilityService() {
       private set
   }
 
-  private data class XWindow(val id: Int, val bounds: Rect)
+  private sealed interface Focus {
+    data class XWindow(val id: Int, val bounds: Rect) : Focus
+    data object Transient : Focus
+    data object OtherApp : Focus
+  }
 
   private val settings by lazy { ScrollTimerSettings(this) }
   private val overlay by lazy { TimerOverlay(this, ::lockX, ::unlockX) }
   private val power by lazy { getSystemService(PowerManager::class.java)!! }
   private val keyguard by lazy { getSystemService(KeyguardManager::class.java)!! }
+  private val shareSheetPackages by lazy {
+    val resolved = packageManager.resolveActivity(Intent(Intent.ACTION_CHOOSER), PackageManager.MATCH_DEFAULT_ONLY)
+    setOf("android", "com.android.intentresolver", "com.google.android.intentresolver", resolved?.activityInfo?.packageName)
+  }
   private val handler = Handler(Looper.getMainLooper())
   private val tick = Runnable { refreshWindow() }
   private var receiverRegistered = false
-  private var window: XWindow? = null
-  private var clock = ScrollClock(false, 0)
-  private var lastSavedAt = 0L
+  private var window: Focus.XWindow? = null
+  private var session: ScrollClock? = null
 
   internal var sawScrollEvents = false
     private set
@@ -45,7 +53,7 @@ class ScrollTimerService : AccessibilityService() {
 
   private val screenReceiver = object : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-      if (intent.action == Intent.ACTION_SCREEN_OFF) pause() else refreshWindow()
+      if (intent.action == Intent.ACTION_SCREEN_OFF) endSession() else refreshWindow()
     }
   }
 
@@ -56,7 +64,6 @@ class ScrollTimerService : AccessibilityService() {
       return
     }
     running = this
-    clock = readClock()
     if (!receiverRegistered) {
       registerReceiver(screenReceiver, IntentFilter().apply {
         addAction(Intent.ACTION_SCREEN_OFF)
@@ -78,14 +85,13 @@ class ScrollTimerService : AccessibilityService() {
         if (window?.id != event.windowId) refreshWindow()
         if (window?.id != event.windowId || !screenAvailable()) return
 
-        val now = SystemClock.uptimeMillis()
         if (settings.locked) return
+        val clock = session ?: return
+        val now = SystemClock.uptimeMillis()
         sawScrollEvents = true
-        if (!clock.foregroundMode) {
-          val wasCounting = clock.countingFor(now) > 0
-          clock.update(now, eligible = true, scrolled = true)
-          if (!wasCounting) render(now)
-        }
+        val wasScrolling = clock.scrollingFor(now) > 0
+        clock.update(now, eligible = true, scrolled = true)
+        if (!settings.foregroundMode && !wasScrolling) render(now)
       }
     }
   }
@@ -115,63 +121,62 @@ class ScrollTimerService : AccessibilityService() {
     disableSelf()
   }
 
-  internal fun preferencesChanged(reset: Boolean = false) {
-    val now = SystemClock.uptimeMillis()
-    if (reset || settings.foregroundMode != clock.foregroundMode) {
-      clock.update(now, eligible = false)
-      if (!reset) settings.storeTotal(clock)
-      clock = readClock()
-    }
-    refreshWindow()
-  }
-
-  internal fun totalMs(now: Long): Long {
+  internal fun sessionMs(now: Long, foreground: Boolean): Long? {
+    val clock = session ?: return null
     clock.update(now, eligible = window != null && screenAvailable() && !settings.locked)
-    return clock.totalMs
+    return clock.totalMs(foreground)
   }
-
-  private fun readClock() = ScrollClock(settings.foregroundMode, settings.totalMs(settings.foregroundMode))
 
   private fun screenAvailable() = power.isInteractive && !keyguard.isKeyguardLocked
 
-  private fun refreshWindow() {
-    if (running !== this || !settings.enabled || !screenAvailable()) {
-      pause()
+  internal fun refreshWindow() {
+    if (running !== this) return
+    if (!settings.enabled || !screenAvailable()) {
+      endSession()
       return
     }
-    val next = focusedXWindow()
+    val focus = focusedWindow()
     val now = SystemClock.uptimeMillis()
-    if (next?.id != window?.id) overlay.hide()
-    if (next?.id != window?.id && !clock.foregroundMode) clock.update(now, eligible = false)
+    if (focus == Focus.OtherApp) {
+      endSession(now)
+      return
+    }
+    val next = focus as? Focus.XWindow
+    if (next?.id != window?.id) {
+      overlay.hide()
+      session?.update(now, eligible = false)
+    }
     window = next
+    if (next != null && session == null) session = ScrollClock()
     render(now)
   }
 
   @Suppress("DEPRECATION")
-  private fun focusedXWindow(): XWindow? {
+  private fun focusedWindow(): Focus {
     val visible = windows
     try {
       val focused = visible.firstOrNull { it.isFocused && it.type != AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY }
-        ?: return null
-      if (focused.type != AccessibilityWindowInfo.TYPE_APPLICATION) return null
-      if (Build.VERSION.SDK_INT >= 26 && focused.isInPictureInPictureMode) return null
-      val root = (if (Build.VERSION.SDK_INT >= 33) focused.getRoot(0) else focused.root) ?: return null
+        ?: return Focus.Transient
+      if (focused.type != AccessibilityWindowInfo.TYPE_APPLICATION) return Focus.Transient
+      if (Build.VERSION.SDK_INT >= 26 && focused.isInPictureInPictureMode) return Focus.OtherApp
+      val root = (if (Build.VERSION.SDK_INT >= 33) focused.getRoot(0) else focused.root) ?: return Focus.Transient
       // Read the window owner only. Feed nodes, text and scroll contents are never traversed.
-      val isX = try {
-        root.packageName?.toString() == X_PACKAGE
+      val owner = try {
+        root.packageName?.toString()
       } finally {
         if (Build.VERSION.SDK_INT < 33) root.recycle()
       }
-      if (!isX) return null
+      if (owner == null || owner in shareSheetPackages) return Focus.Transient
+      if (owner != X_PACKAGE) return Focus.OtherApp
       val bounds = Rect().also(focused::getBoundsInScreen)
-      if (bounds.isEmpty) return null
+      if (bounds.isEmpty) return Focus.Transient
       // On older Android the overlay uses the system's full app frame.
       if (Build.VERSION.SDK_INT < 30 && visible.any {
           it.type == AccessibilityWindowInfo.TYPE_APPLICATION &&
             it.id != focused.id &&
             !bounds.contains(Rect().also(it::getBoundsInScreen))
-        }) return null
-      return XWindow(focused.id, bounds)
+        }) return Focus.Transient
+      return Focus.XWindow(focused.id, bounds)
     } finally {
       if (Build.VERSION.SDK_INT < 33) visible.forEach { it.recycle() }
     }
@@ -179,7 +184,7 @@ class ScrollTimerService : AccessibilityService() {
 
   private fun lockX() {
     val current = window ?: return
-    if (running !== this || settings.locked || !screenAvailable() || focusedXWindow() != current) return
+    if (running !== this || settings.locked || !screenAvailable() || focusedWindow() != current) return
     val now = SystemClock.uptimeMillis()
     settings.locked = true
     render(now)
@@ -192,7 +197,7 @@ class ScrollTimerService : AccessibilityService() {
 
   private fun unlockX() {
     val current = window ?: return
-    if (running !== this || !settings.locked || !screenAvailable() || focusedXWindow() != current) return
+    if (running !== this || !settings.locked || !screenAvailable() || focusedWindow() != current) return
     settings.locked = false
     render(SystemClock.uptimeMillis())
   }
@@ -201,46 +206,49 @@ class ScrollTimerService : AccessibilityService() {
     handler.removeCallbacks(tick)
     val target = window
     val locked = settings.locked
-    clock.update(now, eligible = target != null && !locked)
-    val countingFor = clock.countingFor(now)
-    if (countingFor == 0L || now - lastSavedAt >= 15 * SECOND_MS) {
-      settings.storeTotal(clock)
-      lastSavedAt = now
-    }
-    if (target == null) {
+    val clock = session
+    clock?.update(now, eligible = target != null && !locked)
+    if (target == null || clock == null) {
       overlay.hide()
       return
     }
 
+    val foreground = settings.foregroundMode
+    val scrollingFor = clock.scrollingFor(now)
     val message = if (locked) {
       "X is locked"
     } else {
-      val elapsed = formatTime(clock.totalMs / SECOND_MS)
+      val elapsed = formatTime(clock.totalMs(foreground) / SECOND_MS)
       when {
-        clock.foregroundMode -> "Time in X\n$elapsed"
-        countingFor > 0 -> "Scrolling\n$elapsed"
+        foreground -> "Time in X\n$elapsed"
+        scrollingFor > 0 -> "Scrolling\n$elapsed"
         !sawScrollEvents -> "Waiting for scroll\n$elapsed"
         else -> "Scroll paused\n$elapsed"
       }
     }
     overlayFailed = !overlay.show(target.bounds, locked, message)
     val delay = when {
-      locked -> SECOND_MS
-      countingFor > 0 -> minOf(countingFor, SECOND_MS)
+      locked || foreground -> SECOND_MS
+      scrollingFor > 0 -> minOf(scrollingFor, SECOND_MS)
       else -> return
     }
     handler.postDelayed(tick, delay)
   }
 
-  private fun pause() {
-    if (running !== this) return
+  private fun endSession(now: Long = SystemClock.uptimeMillis()) {
+    session?.let {
+      it.update(now, eligible = false)
+      settings.storeSession(it)
+    }
+    session = null
     window = null
-    render(SystemClock.uptimeMillis())
+    handler.removeCallbacks(tick)
+    overlay.hide()
   }
 
   private fun stop() {
     if (running !== this) return
-    pause()
+    endSession()
     running = null
     if (receiverRegistered) {
       unregisterReceiver(screenReceiver)

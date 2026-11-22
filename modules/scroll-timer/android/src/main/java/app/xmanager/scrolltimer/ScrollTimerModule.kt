@@ -26,20 +26,15 @@ class ScrollTimerModule : Module() {
 
     AsyncFunction("setForegroundMode") { foreground: Boolean ->
       settings.foregroundMode = foreground
-      ScrollTimerService.running?.preferencesChanged()
-      state()
-    }.runOnQueue(Queues.MAIN)
-
-    AsyncFunction("resetTime") {
-      settings.resetTotal(settings.foregroundMode)
-      ScrollTimerService.running?.preferencesChanged(reset = true)
+      ScrollTimerService.running?.refreshWindow()
       state()
     }.runOnQueue(Queues.MAIN)
   }
 
   private fun state(): Map<String, Any> {
     val service = ScrollTimerService.running
-    val total = service?.totalMs(SystemClock.uptimeMillis()) ?: settings.totalMs(settings.foregroundMode)
+    val foreground = settings.foregroundMode
+    val total = service?.sessionMs(SystemClock.uptimeMillis(), foreground) ?: settings.lastSessionMs(foreground)
     val component = ComponentName(context, ScrollTimerService::class.java)
     val services = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
     val granted = services?.split(':')?.any { ComponentName.unflattenFromString(it) == component } == true
@@ -49,7 +44,7 @@ class ScrollTimerModule : Module() {
       "granted" to granted,
       "running" to (service != null),
       "locked" to settings.locked,
-      "foregroundMode" to settings.foregroundMode,
+      "foregroundMode" to foreground,
       "totalSeconds" to (total / 1_000).toDouble(),
       "sawScrollEvents" to (service?.sawScrollEvents == true),
       "overlayFailed" to (service?.overlayFailed == true),

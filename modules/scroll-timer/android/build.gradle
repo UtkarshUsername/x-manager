@@ -9,3 +9,7 @@ version = '1.0.0'
 android {
   namespace 'app.xmanager.scrolltimer'
 }
+
+dependencies {
+  testImplementation 'junit:junit:4.13.2'
+}

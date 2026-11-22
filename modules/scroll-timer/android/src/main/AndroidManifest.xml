@@ -3,6 +3,9 @@
     <intent>
       <action android:name="android.settings.ACCESSIBILITY_SETTINGS" />
     </intent>
+    <intent>
+      <action android:name="android.intent.action.CHOOSER" />
+    </intent>
   </queries>
   <application>
     <service

@@ -28,7 +28,6 @@ const timer = requireOptionalNativeModule<{
   getState(): Promise<TimerState>;
   setEnabled(enabled: boolean): Promise<TimerState>;
   setForegroundMode(foreground: boolean): Promise<TimerState>;
-  resetTime(): Promise<TimerState>;
 }>('XManagerScrollTimer');
 
 const measureOptions = [
@@ -171,20 +170,10 @@ export function ScrollTimerScreen({ onBack }: { onBack: () => void }) {
               </Pressable>
             ))}
           </View>
-          <View style={styles.row}>
-            <View style={styles.grow}>
-              <Text style={styles.label}>{state.foregroundMode ? 'Time in X' : 'Scroll time'}</Text>
-              <Text style={styles.value}>{formatTime(state.totalSeconds)}</Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Reset the selected timer"
-              disabled={busy || state.totalSeconds === 0}
-              onPress={() => void update(() => timer.resetTime())}
-              style={[styles.back, state.totalSeconds === 0 && styles.dim]}
-            >
-              <Text style={styles.link}>Reset time</Text>
-            </Pressable>
+          <View style={styles.session}>
+            <Text style={styles.label}>Latest X session</Text>
+            <Text style={styles.value}>{formatTime(state.totalSeconds)}</Text>
+            <Text style={styles.detail}>The timer starts at zero when you return to X after switching apps or turning off the screen.</Text>
           </View>
           {state.running && !state.foregroundMode && !state.sawScrollEvents && (
             <Text style={styles.detail}>If the timer stays paused while you scroll, try Time in X.</Text>
@@ -209,7 +198,7 @@ const styles = StyleSheet.create({
   options: { gap: 8 },
   option: { gap: 4, padding: 12, borderWidth: 1, borderColor: color.line, borderRadius: 8, backgroundColor: color.card },
   selected: { backgroundColor: color.greenWash, borderColor: color.green },
+  session: { gap: 4 },
   value: { color: color.ink, fontSize: 25, fontVariant: ['tabular-nums'] },
-  dim: { opacity: 0.5 },
   error: { padding: 12, color: color.rust, backgroundColor: color.rustWash, borderRadius: 8 },
 });
