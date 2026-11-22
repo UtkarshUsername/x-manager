@@ -1,6 +1,6 @@
 # X Manager
 
-X Manager is a personal Android follow log. In X, open the post that made you follow an account, tap **Share**, and choose **X Manager** in the Android share sheet. If X opens its own sharing menu first, tap **Share via…** to reach the Android sheet.
+X Manager is a personal Android follow log. In X, open the post that made you follow an account, tap **Share**, and choose **X Manager** in the Android share sheet. If X opens its own sharing menu first, tap **Share via…** to reach the Android sheet. The post saves in the background, and you stay in X. A brief Android message confirms the result.
 
 Each share records the account handle, post link, and the time you saved it. The newest saves appear first. Search by handle, with or without the `@`, and tap a row to reopen the post.
 
@@ -37,15 +37,15 @@ See Expo’s [APK build and install guide](https://docs.expo.dev/build-reference
 
 ## Verify on a phone
 
-1. Start with X Manager closed. Share an X post using Android’s share sheet and confirm that X Manager opens and shows the handle and save time.
-2. Go back to X and share a different post while X Manager is still running. Confirm both entries appear, with the latest save first.
+1. Install over the previous APK and confirm your old bookmarks still appear in X Manager.
+2. Close X Manager. Share an X post from the Android share sheet, then share another while X Manager is running in the background. Confirm X stays open and Android shows **Post saved**. Open X Manager and check the handles and save times, with the latest save first.
 3. Share the first post again. Confirm the app reports that it is already saved and keeps the original time.
 4. Share a legacy Twitter status link, a handle-less `x.com/i/status/…` link, and an unrelated link from a browser or text app. The legacy link should save. The other two should show an explanation.
 5. Close and reopen X Manager. Search for part of a handle and tap a matching row to open the post.
 6. Enable the timer and make several swipes in X. Watch for **Scrolling**, then leave the screen still for a few seconds and check that time stops. If it stays at **Waiting for scroll**, switch to **Time in X** and check it counts while you read. Leave X and turn the screen off to check the timer pauses.
 7. Tap **Lock** while in X. Try swiping and tapping the feed. Verify Home, Settings, and another app remain usable, then reopen X and check it is still locked. Tap **Unlock**, choose **Keep locked**, and try a swipe again. Then tap **Unlock** and **Confirm unlock**, and verify scrolling works.
 8. While locked, turn the screen off and back on. Verify the lock returns only in X. Disable the service in Android Settings and verify the overlay disappears. Re-enable it and confirm the lock returns until you unlock it.
-9. Share another post from X while X Manager is on its timer screen. Verify the follow log opens and records the post.
+9. Leave X Manager on its timer screen, then share another post from X. Verify X stays visible, the timer screen is still selected when you return to X Manager, and the post appears when you open the follow log.
 
 Use the installed APK for the share-sheet checks. Android registers the share target from the generated app manifest.
 

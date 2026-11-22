@@ -1,0 +1,8 @@
+<resources>
+  <string name="x_manager_post_saved">Post saved</string>
+  <string name="x_manager_post_duplicate">This post is already saved.</string>
+  <string name="x_manager_post_missing_handle">Share a post link that includes the account handle.</string>
+  <string name="x_manager_post_unsupported">Share a direct X or Twitter post link.</string>
+  <string name="x_manager_post_ambiguous">Share one post link at a time.</string>
+  <string name="x_manager_post_save_failed">Could not save the post. Try sharing again.</string>
+</resources>

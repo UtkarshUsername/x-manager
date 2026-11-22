@@ -11,17 +11,6 @@
       "package": "app.xmanager.followlog",
       "versionCode": 2,
       "allowBackup": false
-    },
-    "plugins": [
-      [
-        "expo-sharing",
-        {
-          "android": {
-            "enabled": true,
-            "singleShareMimeTypes": ["text/plain"]
-          }
-        }
-      ]
-    ]
+    }
   }
 }

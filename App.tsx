@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { color } from './src/colors';
-import type { SavedPost } from './src/post';
+import type { SavedPost } from './src/posts-db';
 import { ScrollTimerScreen } from './src/ScrollTimerScreen';
 import { useFollowLog } from './src/use-follow-log';
 
@@ -41,8 +41,10 @@ function PostRow({ post, onOpen }: { post: SavedPost; onOpen: () => void }) {
 
 function FollowLog() {
   const [showTimer, setShowTimer] = useState(false);
+  const [query, setQuery] = useState('');
+  const [openError, setOpenError] = useState(false);
   const closeTimer = useCallback(() => setShowTimer(false), []);
-  const { posts, loading, loadError, notice, setNotice, query, setQuery, retryLoad } = useFollowLog(closeTimer);
+  const { posts, loading, loadError, available, retryLoad } = useFollowLog();
   const accountFilter = query.trim().replace(/^@/, '').toLowerCase();
   const visiblePosts = useMemo(
     () => posts.filter(({ handle }) => handle.toLowerCase().includes(accountFilter)),
@@ -50,10 +52,11 @@ function FollowLog() {
   );
 
   async function openPost(url: string) {
+    setOpenError(false);
     try {
       await Linking.openURL(url);
     } catch {
-      setNotice({ message: 'Could not open this post. Try again.', tone: 'error' });
+      setOpenError(true);
     }
   }
 
@@ -104,18 +107,15 @@ function FollowLog() {
             </Pressable>
           )}
         </View>
-        {notice && (
-          <View style={[styles.notice, notice.tone === 'error' && styles.errorNotice]}>
-            <Text
-              accessibilityLiveRegion="polite"
-              style={[styles.noticeText, notice.tone === 'error' && styles.errorNoticeText]}
-            >
-              {notice.message}
+        {openError && (
+          <View style={styles.notice}>
+            <Text accessibilityLiveRegion="polite" style={styles.noticeText}>
+              Could not open this post. Try again.
             </Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Dismiss message"
-              onPress={() => setNotice(null)}
+              onPress={() => setOpenError(false)}
               style={styles.clearButton}
             >
               <Text style={styles.dismiss}>×</Text>
@@ -153,9 +153,11 @@ function FollowLog() {
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>{accountFilter ? 'No matching accounts' : 'No follow reasons yet'}</Text>
               <Text style={styles.emptyBody}>
-                {accountFilter
-                  ? 'Try a different account handle.'
-                  : 'Open a post in X, tap Share, and choose X Manager from the Android share sheet.'}
+                {!available
+                  ? 'Saved posts are available in the X Manager Android APK.'
+                  : accountFilter
+                    ? 'Try a different account handle.'
+                    : 'Open a post in X, tap Share, and choose X Manager from the Android share sheet.'}
               </Text>
             </View>
           )
@@ -215,13 +217,11 @@ const styles = StyleSheet.create({
   notice: {
     marginTop: 14,
     borderRadius: 8,
-    backgroundColor: color.greenWash,
+    backgroundColor: color.rustWash,
     alignItems: 'center',
     flexDirection: 'row',
   },
-  errorNotice: { backgroundColor: color.rustWash },
-  noticeText: { flex: 1, color: color.green, fontSize: 14, paddingVertical: 12, paddingLeft: 12 },
-  errorNoticeText: { color: color.rust },
+  noticeText: { flex: 1, color: color.rust, fontSize: 14, paddingVertical: 12, paddingLeft: 12 },
   list: { paddingHorizontal: 24, paddingBottom: 24 },
   listHeader: {
     minHeight: 40,
