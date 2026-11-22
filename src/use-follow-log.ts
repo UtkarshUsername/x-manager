@@ -16,7 +16,7 @@ function isShareUrl(url: string | null | undefined) {
   return url?.endsWith('://expo-sharing') === true;
 }
 
-export function useFollowLog() {
+export function useFollowLog(onShare: () => void) {
   const [posts, setPosts] = useState<SavedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -55,10 +55,12 @@ export function useFollowLog() {
             .map(({ value }) => value),
         );
       } catch {
+        onShare();
         setNotice({ message: 'Could not read this share. Try sharing the post again.', tone: 'error' });
         return;
       }
 
+      onShare();
       queue.current = queue.current.then(async () => {
         if (result.kind !== 'post') {
           setNotice({ message: shareErrors[result.kind], tone: 'error' });
@@ -103,7 +105,7 @@ export function useFollowLog() {
       active = false;
       subscription.remove();
     };
-  }, [refresh]);
+  }, [onShare, refresh]);
 
   return {
     posts,

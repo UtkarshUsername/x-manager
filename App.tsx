@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -11,20 +11,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { color } from './src/colors';
 import type { SavedPost } from './src/post';
+import { ScrollTimerScreen } from './src/ScrollTimerScreen';
 import { useFollowLog } from './src/use-follow-log';
-
-const color = {
-  paper: '#F5F3EC',
-  card: '#FFFDF7',
-  ink: '#14251E',
-  muted: '#526359',
-  line: '#D7DCD2',
-  green: '#1C5A3F',
-  greenWash: '#E0EEE0',
-  rust: '#842F21',
-  rustWash: '#F6E5DC',
-};
 
 const savedDate = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
@@ -50,7 +40,9 @@ function PostRow({ post, onOpen }: { post: SavedPost; onOpen: () => void }) {
 }
 
 function FollowLog() {
-  const { posts, loading, loadError, notice, setNotice, query, setQuery, retryLoad } = useFollowLog();
+  const [showTimer, setShowTimer] = useState(false);
+  const closeTimer = useCallback(() => setShowTimer(false), []);
+  const { posts, loading, loadError, notice, setNotice, query, setQuery, retryLoad } = useFollowLog(closeTimer);
   const accountFilter = query.trim().replace(/^@/, '').toLowerCase();
   const visiblePosts = useMemo(
     () => posts.filter(({ handle }) => handle.toLowerCase().includes(accountFilter)),
@@ -65,11 +57,25 @@ function FollowLog() {
     }
   }
 
+  if (showTimer) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <StatusBar barStyle="dark-content" />
+        <ScrollTimerScreen onBack={closeTimer} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
-        <Text style={styles.appName}>X MANAGER</Text>
+        <View style={styles.headerBar}>
+          <Text style={styles.appName}>X MANAGER</Text>
+          <Pressable accessibilityRole="button" onPress={() => setShowTimer(true)} style={styles.timerButton}>
+            <Text style={styles.timerLabel}>Scroll timer</Text>
+          </Pressable>
+        </View>
         <Text accessibilityRole="header" style={styles.title}>Follow reasons</Text>
         <View style={styles.search}>
           <View accessible={false} style={styles.searchIcon}>
@@ -170,8 +176,11 @@ export default function App() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.paper },
-  header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 20 },
+  header: { paddingHorizontal: 24, paddingTop: 10, paddingBottom: 20 },
+  headerBar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' },
   appName: { color: color.green, fontSize: 12, fontWeight: '700', letterSpacing: 2 },
+  timerButton: { justifyContent: 'center', minHeight: 48, paddingLeft: 12 },
+  timerLabel: { color: color.green, fontSize: 14, fontWeight: '700' },
   title: {
     color: color.ink,
     fontFamily: 'serif',
