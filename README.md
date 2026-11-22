@@ -58,3 +58,7 @@ npx expo install --check
 npx expo-doctor
 npx expo export --platform android
 ```
+
+## License
+
+X Manager is licensed under the [MIT License](LICENSE).

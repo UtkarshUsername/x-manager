@@ -2,6 +2,7 @@
   "name": "x-manager",
   "version": "1.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "main": "index.ts",
   "scripts": {
