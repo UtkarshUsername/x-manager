@@ -1,0 +1,4 @@
+<resources>
+  <string name="x_manager_scroll_timer_service">X Manager scroll timer</string>
+  <string name="x_manager_scroll_timer_description">Shows a timer and lets you lock or unlock X. Uses window focus and scroll events. Timer and lock data stay on this device.</string>
+</resources>

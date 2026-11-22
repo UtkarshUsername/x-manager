@@ -1,0 +1,21 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <queries>
+    <intent>
+      <action android:name="android.settings.ACCESSIBILITY_SETTINGS" />
+    </intent>
+  </queries>
+  <application>
+    <service
+      android:name="app.xmanager.scrolltimer.ScrollTimerService"
+      android:exported="true"
+      android:label="@string/x_manager_scroll_timer_service"
+      android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+      <intent-filter>
+        <action android:name="android.accessibilityservice.AccessibilityService" />
+      </intent-filter>
+      <meta-data
+        android:name="android.accessibilityservice"
+        android:resource="@xml/x_manager_scroll_timer_service" />
+    </service>
+  </application>
+</manifest>
