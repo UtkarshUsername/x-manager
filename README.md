@@ -2,7 +2,7 @@
 
 X Manager is a personal Android follow log. In X, open the post that made you follow an account, tap **Share**, and choose **X Manager** in the Android share sheet. If X opens its own sharing menu first, tap **Share via…** to reach the Android sheet. The post saves in the background, and you stay in X. A brief Android message confirms the result.
 
-Each share records the account handle, post link, and the time you saved it. The newest saves appear first. Search by handle, with or without the `@`, and tap a row to reopen the post.
+Each share records the account handle, post link, and the time you saved it. The newest saves appear first. Search by handle, with or without the `@`, and tap a row to reopen the post. Tap **Remove** beside any saved post and confirm to delete it from X Manager.
 
 X and legacy Twitter status links are saved as clean `x.com` links. Sharing the same status again keeps the first saved time. Links without a handle, shortened links, and shares with conflicting post links show an explanation. Share a direct status link that includes the handle.
 
@@ -46,6 +46,7 @@ See Expo’s [APK build and install guide](https://docs.expo.dev/build-reference
 7. Tap **Lock** while in X. Try swiping and tapping the feed. Verify Home, Settings, and another app remain usable, then reopen X and check it is still locked. Tap **Unlock**, choose **Keep locked**, and try a swipe again. Then tap **Unlock** and **Confirm unlock**, and verify scrolling works.
 8. While locked, turn the screen off and back on. Verify the lock returns only in X. Disable the service in Android Settings and verify the overlay disappears. Re-enable it and confirm the lock returns until you unlock it.
 9. Leave X Manager on its timer screen, then share another post from X. Verify X stays visible, the timer screen is still selected when you return to X Manager, and the post appears when you open the follow log.
+10. Tap **Remove** beside a saved post and cancel. Then confirm removal and check that the post stays gone after reopening X Manager. Share the same post again and check that it has a new saved time.
 
 Use the installed APK for the share-sheet checks. Android registers the share target from the generated app manifest.
 

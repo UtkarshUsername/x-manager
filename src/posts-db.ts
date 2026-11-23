@@ -9,5 +9,6 @@ export type SavedPost = {
 
 export const followLog = requireOptionalNativeModule<{
   listPosts(): Promise<SavedPost[]>;
+  removePost(id: string): Promise<void>;
   addListener(event: 'onPostsChanged', listener: () => void): EventSubscription;
 }>('XManagerFollowLog');

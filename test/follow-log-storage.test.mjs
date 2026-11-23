@@ -40,3 +40,29 @@ test('reads the original database and preserves the first saved timestamp', () =
     db.close();
   }
 });
+
+test('removes only the chosen post and lets it be saved again', () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec(statement('CREATE_POSTS'));
+    const insert = db.prepare(statement('INSERT_POST'));
+    const remove = db.prepare(statement('DELETE_POST'));
+    const list = db.prepare(statement('LIST_POSTS'));
+    const first = '9007199254740992';
+    const second = '9007199254740993';
+    insert.run(first, 'Example', `https://x.com/Example/status/${first}`, 1000);
+    insert.run(second, 'Example', `https://x.com/Example/status/${second}`, 2000);
+
+    assert.equal(remove.run(first).changes, 1);
+    assert.equal(remove.run(first).changes, 0);
+    assert.deepEqual(list.all().map(({ id }) => id), [second]);
+
+    assert.equal(insert.run(first, 'Example', `https://x.com/Example/status/${first}`, 3000).changes, 1);
+    assert.deepEqual(list.all().map(({ id, saved_at }) => [id, saved_at]), [
+      [first, 3000],
+      [second, 2000],
+    ]);
+  } finally {
+    db.close();
+  }
+});

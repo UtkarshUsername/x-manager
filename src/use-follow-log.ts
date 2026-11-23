@@ -40,6 +40,12 @@ export function useFollowLog() {
     loading,
     loadError,
     available: followLog !== null,
+    removePost: async (id: string) => {
+      if (!followLog) throw new Error('Saved posts are unavailable');
+      await followLog.removePost(id);
+      setPosts((current) => current.filter((post) => post.id !== id));
+      void refresh();
+    },
     retryLoad: () => {
       setLoading(true);
       void refresh();

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Linking,
   Pressable,
@@ -21,21 +22,36 @@ const savedDate = new Intl.DateTimeFormat(undefined, {
   timeStyle: 'short',
 });
 
-function PostRow({ post, onOpen }: { post: SavedPost; onOpen: () => void }) {
+function PostRow({ post, onOpen, onRemove }: {
+  post: SavedPost;
+  onOpen: () => void;
+  onRemove: () => void;
+}) {
   return (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityHint="Opens the original post"
-      android_ripple={{ color: color.greenWash }}
-      onPress={onOpen}
-      style={styles.row}
-    >
-      <View style={styles.rowText}>
-        <Text style={styles.handle}>@{post.handle}</Text>
-        <Text style={styles.metadata}>Saved {savedDate.format(post.savedAt)}</Text>
-      </View>
-      <Text accessible={false} importantForAccessibility="no" style={styles.arrow}>↗</Text>
-    </Pressable>
+    <View style={styles.row}>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityHint="Opens the original post"
+        android_ripple={{ color: color.greenWash }}
+        onPress={onOpen}
+        style={styles.postLink}
+      >
+        <View style={styles.rowText}>
+          <Text style={styles.handle}>@{post.handle}</Text>
+          <Text style={styles.metadata}>Saved {savedDate.format(post.savedAt)}</Text>
+        </View>
+        <Text accessible={false} importantForAccessibility="no" style={styles.arrow}>↗</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Remove saved post by @${post.handle}`}
+        android_ripple={{ color: color.rustWash }}
+        onPress={onRemove}
+        style={styles.removeButton}
+      >
+        <Text style={styles.removeLabel}>Remove</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -44,7 +60,7 @@ function FollowLog() {
   const [query, setQuery] = useState('');
   const [openError, setOpenError] = useState(false);
   const closeTimer = useCallback(() => setShowTimer(false), []);
-  const { posts, loading, loadError, available, retryLoad } = useFollowLog();
+  const { posts, loading, loadError, available, retryLoad, removePost } = useFollowLog();
   const accountFilter = query.trim().replace(/^@/, '').toLowerCase();
   const visiblePosts = useMemo(
     () => posts.filter(({ handle }) => handle.toLowerCase().includes(accountFilter)),
@@ -58,6 +74,24 @@ function FollowLog() {
     } catch {
       setOpenError(true);
     }
+  }
+
+  function confirmRemove(post: SavedPost) {
+    Alert.alert(
+      'Remove saved post?',
+      `Remove the post by @${post.handle} saved on ${savedDate.format(post.savedAt)} from X Manager?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          onPress: () => {
+            void removePost(post.id).catch(() => {
+              Alert.alert('Couldn’t remove saved post', 'Try again.');
+            });
+          },
+        },
+      ],
+    );
   }
 
   if (showTimer) {
@@ -162,7 +196,13 @@ function FollowLog() {
             </View>
           )
         }
-        renderItem={({ item }) => <PostRow post={item} onOpen={() => void openPost(item.url)} />}
+        renderItem={({ item }) => (
+          <PostRow
+            post={item}
+            onOpen={() => void openPost(item.url)}
+            onRemove={() => confirmRemove(item)}
+          />
+        )}
       />
     </SafeAreaView>
   );
@@ -234,19 +274,26 @@ const styles = StyleSheet.create({
   sectionName: { color: color.ink, fontSize: 15, fontWeight: '700' },
   count: { color: color.muted, fontSize: 13, fontVariant: ['tabular-nums'] },
   row: {
-    minHeight: 76,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: color.line,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  postLink: {
+    flex: 1,
+    minHeight: 76,
     paddingVertical: 13,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 12,
   },
   rowText: { flex: 1, gap: 4 },
   handle: { color: color.ink, fontSize: 18, fontWeight: '700' },
   metadata: { color: color.muted, fontSize: 14 },
   arrow: { color: color.green, fontSize: 22, paddingRight: 4 },
+  removeButton: { minHeight: 48, paddingHorizontal: 8, justifyContent: 'center' },
+  removeLabel: { color: color.rust, fontSize: 14, fontWeight: '700' },
   loading: { paddingVertical: 32 },
   empty: { paddingTop: 32, paddingBottom: 12, gap: 10 },
   emptyTitle: { color: color.ink, fontFamily: 'serif', fontSize: 24 },

@@ -23,6 +23,10 @@ private const val LIST_POSTS = """
   SELECT id, handle, url, saved_at FROM posts ORDER BY saved_at DESC, rowid DESC
 """
 
+private const val DELETE_POST = """
+  DELETE FROM posts WHERE id = ?
+"""
+
 internal object FollowLogStore {
   val listeners = CopyOnWriteArraySet<() -> Unit>()
   private var connection: SQLiteDatabase? = null
@@ -58,6 +62,13 @@ internal object FollowLogStore {
       statement.bindLong(4, savedAt)
       statement.executeInsert() != -1L
     }
+
+  fun remove(context: Context, id: String) {
+    database(context).compileStatement(DELETE_POST).use { statement ->
+      statement.bindString(1, id)
+      statement.executeUpdateDelete()
+    }
+  }
 
   fun list(context: Context): List<Map<String, Any>> = database(context).rawQuery(LIST_POSTS, null).use { rows ->
     buildList {
