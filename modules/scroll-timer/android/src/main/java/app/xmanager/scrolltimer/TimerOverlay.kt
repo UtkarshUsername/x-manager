@@ -3,12 +3,16 @@ package app.xmanager.scrolltimer
 import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.Point
+import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.WindowInsets
@@ -17,13 +21,17 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 internal class TimerOverlay(
   private val context: Context,
+  private val settings: ScrollTimerSettings,
   private val lock: () -> Unit,
   private val unlock: () -> Unit,
 ) {
+  private data class Placement(val params: WindowManager.LayoutParams, val area: Rect)
+
   private val manager = context.getSystemService(WindowManager::class.java)!!
   private var view: View? = null
   private var text: TextView? = null
@@ -33,7 +41,7 @@ internal class TimerOverlay(
   fun show(target: Rect, locked: Boolean, message: String): Boolean {
     if (view == null || bounds != target || blocking != locked) {
       hide()
-      val params = placement(target, locked) ?: return false
+      val placement = placement(target, locked) ?: return false
       val label = TextView(context).apply {
         setTextColor(Color.WHITE)
         textSize = if (locked) 25f else 14f
@@ -42,8 +50,9 @@ internal class TimerOverlay(
       }
       val panel = if (locked) blocker(label) else chip(label)
       label.text = message
+      if (!locked) makeDraggable(panel, placement)
       try {
-        manager.addView(panel, params)
+        manager.addView(panel, placement.params)
       } catch (_: WindowManager.BadTokenException) {
         return false
       } catch (_: WindowManager.InvalidDisplayException) {
@@ -74,7 +83,7 @@ internal class TimerOverlay(
   }
 
   @Suppress("RtlHardcoded")
-  private fun placement(target: Rect, locked: Boolean): WindowManager.LayoutParams? {
+  private fun placement(target: Rect, locked: Boolean): Placement? {
     val params = WindowManager.LayoutParams(
       if (locked) MATCH_PARENT else dp(238),
       if (locked) MATCH_PARENT else WRAP_CONTENT,
@@ -84,38 +93,104 @@ internal class TimerOverlay(
     )
     params.gravity = Gravity.TOP or Gravity.RIGHT
     params.title = "X Manager scroll timer"
-    if (Build.VERSION.SDK_INT < 30) {
-      if (!locked) {
-        params.x = dp(8)
-        params.y = dp(8)
+    val area = Rect(target)
+    if (Build.VERSION.SDK_INT >= 30) {
+      val metrics = manager.currentWindowMetrics
+      val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
+        WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
+      )
+      val safe = Rect(metrics.bounds).apply { inset(insets.left, insets.top, insets.right, insets.bottom) }
+      if (!area.intersect(safe)) return null
+
+      params.flags = params.flags or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+      params.setFitInsetsTypes(0)
+      params.y = area.top - metrics.bounds.top
+      if (locked) {
+        params.gravity = Gravity.TOP or Gravity.LEFT
+        params.width = area.width()
+        params.height = area.height()
+        params.x = area.left - metrics.bounds.left
+      } else {
+        params.x = metrics.bounds.right - area.right
       }
-      return params
     }
 
-    val metrics = manager.currentWindowMetrics
-    val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
-      WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
-    )
-    val safe = Rect(metrics.bounds).apply { inset(insets.left, insets.top, insets.right, insets.bottom) }
-    val area = Rect(target)
-    if (!area.intersect(safe)) return null
-
-    params.flags = params.flags or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-    params.setFitInsetsTypes(0)
-    params.gravity = Gravity.TOP or Gravity.LEFT
-    if (locked) {
-      params.width = area.width()
-      params.height = area.height()
-      params.x = area.left - metrics.bounds.left
-      params.y = area.top - metrics.bounds.top
-    } else {
+    if (!locked) {
       val margin = dp(8)
       if (area.width() < dp(150) || area.height() < dp(70)) return null
       params.width = minOf(params.width, area.width() - 2 * margin)
-      params.x = area.right - metrics.bounds.left - params.width - margin
-      params.y = area.top - metrics.bounds.top + margin
+      params.x += margin
+      params.y += margin
     }
-    return params
+    return Placement(params, area)
+  }
+
+  @Suppress("ClickableViewAccessibility")
+  private fun makeDraggable(panel: View, placement: Placement) {
+    val (params, area) = placement
+    val originX = params.x
+    val originY = params.y
+    val margins = 2 * dp(8)
+    val maxX = (area.width() - params.width - margins).coerceAtLeast(0)
+    val preferred = settings.overlayOffset
+
+    fun move(offsetX: Int, offsetY: Int, height: Int) {
+      val maxY = (area.height() - height - margins).coerceAtLeast(0)
+      val x = originX + offsetX.coerceIn(0, maxX)
+      val y = originY + offsetY.coerceIn(0, maxY)
+      if (x == params.x && y == params.y) return
+      params.x = x
+      params.y = y
+      if (view === panel) {
+        try {
+          manager.updateViewLayout(panel, params)
+        } catch (_: IllegalArgumentException) {
+          // Android may already have removed the window.
+        }
+      }
+    }
+
+    panel.measure(
+      View.MeasureSpec.makeMeasureSpec(params.width, View.MeasureSpec.EXACTLY),
+      View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+    )
+    move(preferred.x, preferred.y, panel.measuredHeight)
+    panel.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+      move(preferred.x, preferred.y, panel.height)
+    }
+
+    val slop = ViewConfiguration.get(context).scaledTouchSlop
+    val down = PointF()
+    val start = Point()
+    var tracking = false
+    var dragging = false
+    // The Lock button handles its own taps. The surrounding chip handles drags.
+    panel.setOnTouchListener { _, event ->
+      when (event.actionMasked) {
+        MotionEvent.ACTION_DOWN -> {
+          down.set(event.rawX, event.rawY)
+          start.set(params.x - originX, params.y - originY)
+          tracking = true
+        }
+        MotionEvent.ACTION_MOVE -> if (tracking) {
+          // Screen coordinates stay stable as the window moves under the finger.
+          val dx = event.rawX - down.x
+          val dy = event.rawY - down.y
+          if (dragging || abs(dx) > slop || abs(dy) > slop) {
+            dragging = true
+            // With right gravity, increasing x moves the window left.
+            move(start.x - dx.roundToInt(), start.y + dy.roundToInt(), panel.height)
+            preferred.set(params.x - originX, params.y - originY)
+          }
+        }
+        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_DOWN -> {
+          if (dragging) settings.overlayOffset = preferred
+          dragging = false
+          tracking = false
+        }
+      }
+      true
+    }
   }
 
   private fun chip(label: TextView) = LinearLayout(context).apply {

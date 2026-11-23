@@ -1,6 +1,7 @@
 package app.xmanager.scrolltimer
 
 import android.content.Context
+import android.graphics.Point
 
 internal class ScrollTimerSettings(context: Context) {
   private val prefs = context.getSharedPreferences("scroll_timer", Context.MODE_PRIVATE)
@@ -15,6 +16,13 @@ internal class ScrollTimerSettings(context: Context) {
   var locked: Boolean
     get() = prefs.getBoolean("locked", false)
     set(value) = prefs.edit().putBoolean("locked", value).apply()
+
+  var overlayOffset: Point
+    get() = Point(prefs.getInt("overlay_offset_x", 0), prefs.getInt("overlay_offset_y", 0))
+    set(value) = prefs.edit()
+      .putInt("overlay_offset_x", value.x)
+      .putInt("overlay_offset_y", value.y)
+      .apply()
 
   fun lastSessionMs(foreground: Boolean) =
     prefs.getLong(if (foreground) "last_session_foreground_ms" else "last_session_scroll_ms", 0)

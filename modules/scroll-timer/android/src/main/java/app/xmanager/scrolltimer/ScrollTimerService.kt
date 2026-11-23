@@ -33,7 +33,7 @@ class ScrollTimerService : AccessibilityService() {
   }
 
   private val settings by lazy { ScrollTimerSettings(this) }
-  private val overlay by lazy { TimerOverlay(this, ::lockX, ::unlockX) }
+  private val overlay by lazy { TimerOverlay(this, settings, ::lockX, ::unlockX) }
   private val power by lazy { getSystemService(PowerManager::class.java)!! }
   private val keyguard by lazy { getSystemService(KeyguardManager::class.java)!! }
   private val shareSheetPackages by lazy {
