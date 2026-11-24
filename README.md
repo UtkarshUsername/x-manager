@@ -12,7 +12,7 @@ In **Follow reasons**, search by account handle, tap a saved post to reopen it, 
 
 In X Manager, open **Scroll timer**, turn on **Show timer in X**, and use **Open Accessibility Settings** to enable **X Manager scroll timer**. In the official X app, drag the timer by its text to move it. X Manager remembers its position.
 
-- **Scroll activity** counts time when X reports scrolling. **Time in X** also counts reading time and works when scroll events are unreliable.
+- **Scroll activity** counts time when X reports scrolling. Choose **Time in X** if scroll events are unreliable or you want to count all the time you spend in X during a session, including reading.
 - The share sheet pauses the current session. Switching apps or turning off the screen ends it. The next session starts at zero.
 - Tap **Lock** to block taps and swipes in X while keeping other apps usable. The lock persists when you leave X. To end it, tap **Unlock**, then **Confirm unlock**.
 
